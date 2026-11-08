@@ -3,7 +3,7 @@ from sklearn.ensemble import IsolationForest
 from sklearn.svm import OneClassSVM
 from sklearn.neighbors import LocalOutlierFactor
 
-from train_tabular_models import load_features, add_severity_labels, SEVERITY_LABELS
+from train_tabular_models import load_features
 
 
 def run_anomaly_detection(train_path="vil_tabular_features_train.csv",
