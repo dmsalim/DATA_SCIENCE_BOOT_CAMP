@@ -17,7 +17,7 @@ FINAL_PROJECT/
 ├── train_tabular_models.py         # Regression + severity classification (sklearn)
 ├── analysis_plots.py               # Diagnostic plots for the tabular models
 ├── train_ml_models.py              # CNN / Transformer / diffusion nowcasting models (PyTorch)
-├── classic_anomaly_detection.py    # (placeholder, empty)
+├── classic_anomaly_detection.py    # Isolation Forest / One-Class SVM / LOF on tabular features
 ├── CATALOG.csv                     # SEVIR event catalog (all image types)
 ├── vil_train_catalog.csv           # VIL events before 2019-06-01 (15,693 events)
 ├── vil_test_catalog.csv            # VIL events from 2019-06-01 on (4,700 events)
