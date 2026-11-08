@@ -7,3 +7,6 @@ __pycache__/
 FINAL_PROJECT/data/vil/
 *.h5
 *.pickle
+
+# Cluster job script (contains personal email/paths)
+FINAL_PROJECT/SEVIR_train_ml_models.sh
