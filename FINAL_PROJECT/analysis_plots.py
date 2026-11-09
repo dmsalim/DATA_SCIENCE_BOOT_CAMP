@@ -4,10 +4,104 @@ import pandas            as pd
 import os
 import pickle
 
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics     import confusion_matrix, ConfusionMatrixDisplay
 from sklearn.calibration import calibration_curve
+from sevir_utils         import SEVIRVILDataset
+
+# --- Windows per event and total windows (input_len=13, output_len=12, stride=12) ---
+def n_windows_per_event(T=49, input_len=13, output_len=12, stride=12):
+    return len(range(0, T - input_len - output_len + 1, stride))
+
+def generate_regression_latex_table(reg_results, savepath=os.path.join(os.getcwd(), "ANALYSIS_PLOTS")):
+    """Builds a LaTeX table (as a string) from the regression results dict and
+    saves it to a .tex file for direct \\input{} inclusion in the report."""
+    rows = []
+    for name, result in reg_results.items():
+        display_name = name.replace("_", " ").title()
+        rows.append(f"{display_name} & {result['mae']:.3f} & {result['r2']:.3f} \\\\")
+
+    table = (
+        "\\begin{table}[h]\n"
+        "\\centering\n"
+        "\\begin{tabular}{lcc}\n"
+        "\\toprule\n"
+        "Model & MAE & $R^2$ \\\\\n"
+        "\\midrule\n"
+        + "\n".join(rows) + "\n"
+        "\\bottomrule\n"
+        "\\end{tabular}\n"
+        "\\caption{Regression performance predicting \\texttt{target\\_mean} on the held-out validation split.}\n"
+        "\\label{tab:regression_results}\n"
+        "\\end{table}\n"
+    )
+
+    with open(os.path.join(savepath, "results_regression_table.tex"), "w") as f:
+        f.write(table)
+
+    print(table)
+    return table
 
 
+def generate_classification_latex_table(clf_results, val_df, feature_cols,
+                                          target_col="target_severity",
+                                          class_names=("normal", "moderate", "severe"),
+                                          savepath=os.path.join(os.getcwd(), "ANALYSIS_PLOTS")):
+    """Builds a LaTeX table of per-class precision/recall/F1 plus AUC for each
+    classifier, from the classification results dict and validation data."""
+    from sklearn.metrics import classification_report
+
+    y_val = val_df[target_col]
+    X_val = val_df[feature_cols]
+    present_classes = sorted(y_val.unique())
+    target_names = [class_names[c] for c in present_classes]
+
+    rows = []
+    for name, result in clf_results.items():
+        preds = result["model"].predict(X_val)
+        report = classification_report(
+            y_val, preds, labels=present_classes, target_names=target_names,
+            output_dict=True, zero_division=0,
+        )
+        display_name = name.replace("_", " ").title()
+        rows.append(
+            f"\\multirow{{{len(target_names)}}}{{*}}{{{display_name}}}"
+        )
+        for i, cls in enumerate(target_names):
+            prec = report[cls]["precision"]
+            rec = report[cls]["recall"]
+            f1 = report[cls]["f1-score"]
+            support = int(report[cls]["support"])
+            if i == 0:
+                rows[-1] += f" & {cls} & {prec:.3f} & {rec:.3f} & {f1:.3f} & {support} \\\\"
+            else:
+                rows.append(f" & {cls} & {prec:.3f} & {rec:.3f} & {f1:.3f} & {support} \\\\")
+        rows.append(f"& \\textbf{{AUC}} & \\multicolumn{{4}}{{l}}{{{result['auc']:.3f}}} \\\\")
+        rows.append("\\midrule")
+
+    if rows and rows[-1] == "\\midrule":
+        rows.pop()
+
+    table = (
+        "\\begin{table}[h]\n"
+        "\\centering\n"
+        "\\begin{tabular}{llcccc}\n"
+        "\\toprule\n"
+        "Model & Class & Precision & Recall & F1 & Support \\\\\n"
+        "\\midrule\n"
+        + "\n".join(rows) + "\n"
+        "\\bottomrule\n"
+        "\\end{tabular}\n"
+        "\\caption{Classification performance predicting \\texttt{target\\_severity} "
+        "(3-class, macro one-vs-rest AUC reported per model) on the held-out validation split.}\n"
+        "\\label{tab:classification_results}\n"
+        "\\end{table}\n"
+    )
+
+    with open(os.path.join(savepath, "results_classification_table.tex"), "w") as f:
+        f.write(table)
+
+    print(table)
+    return table
 
 def plot_regression_diagnostics(reg_results, val_df, feature_cols, target_col="target_mean", savepath=os.path.join(os.getcwd(), "ANALYSIS_PLOTS")):
     y_val = val_df[target_col]
@@ -119,18 +213,83 @@ def plot_calibration(clf_results, val_df, feature_cols, target_col="target_sever
     return fig
 
 if __name__ == "__main__":
+    ##################################
+    ### --- PRINT DATA METRICS --- ###
+    ##################################
+
+    # --- Catalog-level counts ---
+    catalog = pd.read_csv("CATALOG.csv", parse_dates=["time_utc"], low_memory=False)
+    print("Full catalog rows:", catalog.shape[0])
+    print("Catalog rows by modality:\n", catalog["img_type"].value_counts())
+
+    vil_catalog = catalog[catalog["img_type"] == "vil"]
+    print("VIL-only catalog rows:", len(vil_catalog))
+
+    train_catalog = pd.read_csv("vil_train_catalog.csv", parse_dates=["time_utc"])
+    test_catalog = pd.read_csv("vil_test_catalog.csv", parse_dates=["time_utc"])
+    print("Train events:", len(train_catalog))
+    print("Test events:", len(test_catalog))
+
+    # --- HDF5 file count for the VIL modality (run this on the cluster, in the data/vil directory) ---
+    # find data/vil -name "*.h5" | wc -l
+
+    windows_per_event = n_windows_per_event()
+    print("Windows per event:", windows_per_event)
+    print("Total train windows (approx):", len(train_catalog) * windows_per_event)
+    print("Total test windows (approx):", len(test_catalog) * windows_per_event)
+
+    # --- Severity threshold values, from your tabular feature CSV ---
+    tabular_train = pd.read_csv("vil_tabular_features_train.csv")
+    print("target_mean quantiles:\n", tabular_train["target_mean"].quantile([0.5, 0.75, 0.9, 0.95, 0.99]))
+
+    moderate_threshold = tabular_train["target_mean"].quantile(0.90)
+    severe_threshold = tabular_train["target_mean"].quantile(0.99)
+    print("moderate_threshold:", moderate_threshold)
+    print("severe_threshold:", severe_threshold)
+
+    print("Actual windows in tabular_train:", len(tabular_train))
+
+    # or, if using the PyTorch dataset directly:
+    train_dataset = SEVIRVILDataset(train_catalog, data_dir="data")
+    print("Actual windows in SEVIRVILDataset:", len(train_dataset))
+
+    ##########################################
+    ### --- TRAINED RESULTS START HERE --- ###
+    ##########################################
+
     trained_tabular_models_picklefile = "trained_tabular_models.pickle"
     with open(trained_tabular_models_picklefile, 'rb') as f:
         train_tabular_pickle_save_object = pickle.load(f)
 
-    train_df = train_tabular_pickle_save_object["train_df"]
-    test_df = train_tabular_pickle_save_object["test_df"]
+    train_df     = train_tabular_pickle_save_object["train_df"]
+    test_df      = train_tabular_pickle_save_object["test_df"]
     feature_cols = train_tabular_pickle_save_object["feature_cols"]
-    reg_results = train_tabular_pickle_save_object["regression_results"]
-    clf_results = train_tabular_pickle_save_object["classification_results"]
+    reg_results  = train_tabular_pickle_save_object["regression_results"]
+    clf_results  = train_tabular_pickle_save_object["classification_results"]
 
     plot_regression_diagnostics(reg_results, test_df, feature_cols)
     plot_classification_diagnostics(clf_results, test_df, feature_cols,
                                  class_names=["normal", "moderate", "severe"])
     plot_all_feature_importances(reg_results, clf_results, feature_cols)
     plot_calibration(clf_results, test_df, feature_cols)
+
+    generate_regression_latex_table(reg_results)
+    generate_classification_latex_table(clf_results, test_df, feature_cols) 
+
+    reg_importances = pd.Series(
+        reg_results["gradient_boosting"]["model"].feature_importances_, index=feature_cols
+    ).sort_values(ascending=False)
+
+    clf_importances = pd.Series(
+        clf_results["gradient_boosting"]["model"].feature_importances_, index=feature_cols
+    ).sort_values(ascending=False)
+
+    print("Regression (gradient boosting) feature importances:")
+    print(reg_importances)
+    print("\nClassification (gradient boosting) feature importances:")
+    print(clf_importances)
+
+    # Quick agreement check: how much do the top-3 features overlap?
+    top3_reg = set(reg_importances.head(3).index)
+    top3_clf = set(clf_importances.head(3).index)
+    print("\nTop-3 overlap:", top3_reg & top3_clf)

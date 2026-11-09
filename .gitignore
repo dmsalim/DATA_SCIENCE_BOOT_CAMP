@@ -10,3 +10,6 @@ FINAL_PROJECT/data/vil/
 
 # Cluster job script (contains personal email/paths)
 FINAL_PROJECT/SEVIR_train_ml_models.sh
+
+# Keep training script local only
+FINAL_PROJECT/train_ml_models.py

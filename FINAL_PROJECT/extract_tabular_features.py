@@ -95,53 +95,7 @@ def run_extraction(catalogs, outputs, data_dir=None,
     return results
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--catalogs", nargs="+", required=True,
-                         help="One or more catalog CSV paths, e.g. vil_train_catalog.csv vil_test_catalog.csv")
-    parser.add_argument("--outputs", nargs="+", required=True,
-                         help="Matching output CSV paths, one per catalog, in the same order")
-    parser.add_argument("--data_dir", default=os.path.join(os.getcwd(), "data"),
-                         help="Path to the SEVIR data directory containing HDF5 files")
-    parser.add_argument("--predict_frame", type=int, default=11)
-    parser.add_argument("--rain_threshold", type=float, default=74,
-                         help="VIL value above which a pixel counts as exceeding, for the classification target")
-    parser.add_argument("--limit", type=int, default=None,
-                         help="Only process first N events per split (for quick testing)")
-    args = parser.parse_args()
-
-    if len(args.catalogs) != len(args.outputs):
-        parser.error(
-            f"Got {len(args.catalogs)} catalogs but {len(args.outputs)} outputs — "
-            "these must be passed in matching pairs."
-        )
-
-    for catalog_path, output_path in zip(args.catalogs, args.outputs):
-        print(f"\n=== Processing {catalog_path} ===")
-        catalog = pd.read_csv(catalog_path, parse_dates=["time_utc"])
-        print(f"Loaded catalog: {catalog.shape}")
-
-        tabular_df = build_tabular_dataset(
-            catalog, args.data_dir,
-            predict_frame  = args.predict_frame,
-            rain_threshold = args.rain_threshold,
-            limit          = args.limit,
-        )
-        print(f"Final tabular shape: {tabular_df.shape}")
-        print(tabular_df.describe())
-        print(f"target_exceeds distribution:\n{tabular_df['target_exceeds'].value_counts(normalize=True)}")
-
-        tabular_df.to_csv(output_path, index=False)
-        print(f"Saved to {output_path}")
-
-
 if __name__ == "__main__":
-    #main()
-
-    ### --- EXAMPLE CALL: --- ###
-    # python extract_tabular_features.py \
-             # --catalogs vil_train_catalog.csv vil_test_catalog.csv \
-             # --outputs vil_tabular_features_train.csv vil_tabular_features_test.csv
 
     results = run_extraction(catalogs=["vil_train_catalog.csv", "vil_test_catalog.csv"],
                              outputs=["vil_tabular_features_train.csv", "vil_tabular_features_test.csv"],
@@ -150,3 +104,4 @@ if __name__ == "__main__":
 
     train_df = results["vil_tabular_features_train.csv"]
     train_df.describe()
+    print(train_df["target_mean"].quantile([0.5, 0.75, 0.9, 0.95, 0.99]))

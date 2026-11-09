@@ -1,0 +1,14 @@
+\begin{table}[h]
+\centering
+\begin{tabular}{lccc}
+\toprule
+Detector & Normal & Moderate & Severe \\
+\midrule
+ISO & 1335 (3.2%) & 801 (18.9%) & 218 (46.3%) \\
+SVM & 1761 (4.2%) & 481 (11.4%) & 109 (23.1%) \\
+LOF & 2227 (5.3%) & 61 (1.4%) & 66 (14.0%) \\
+\bottomrule
+\end{tabular}
+\caption{Count (and rate, i.e.\ count divided by the total number of windows in that tier) of windows flagged as anomalous by each unsupervised method, broken down by quantile-derived severity tier. The rate accounts for the substantial imbalance in tier sizes (normal/moderate/severe windows occur at approximately 90\%/9\%/1\% of the training set respectively) and is the quantity directly comparable to Figure~\ref{fig:anomaly_crosstab}.}
+\label{tab:anomaly_crosstab}
+\end{table}

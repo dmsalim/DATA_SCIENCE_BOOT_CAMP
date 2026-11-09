@@ -1,0 +1,25 @@
+\begin{table}[h]
+\centering
+\begin{tabular}{llcccc}
+\toprule
+Model & Class & Precision & Recall & F1 & Support \\
+\midrule
+\multirow{3}{*}{Logistic} & normal & 0.981 & 0.827 & 0.897 & 12369 \\
+ & moderate & 0.392 & 0.770 & 0.519 & 1221 \\
+ & severe & 0.193 & 0.482 & 0.276 & 510 \\
+& \textbf{AUC} & \multicolumn{4}{l}{0.876} \\
+\midrule
+\multirow{3}{*}{Random Forest} & normal & 0.971 & 0.960 & 0.965 & 12369 \\
+ & moderate & 0.725 & 0.906 & 0.806 & 1221 \\
+ & severe & 0.461 & 0.304 & 0.366 & 510 \\
+& \textbf{AUC} & \multicolumn{4}{l}{0.898} \\
+\midrule
+\multirow{3}{*}{Gradient Boosting} & normal & 0.954 & 0.986 & 0.970 & 12369 \\
+ & moderate & 0.840 & 0.835 & 0.838 & 1221 \\
+ & severe & 0.593 & 0.125 & 0.207 & 510 \\
+& \textbf{AUC} & \multicolumn{4}{l}{0.906} \\
+\bottomrule
+\end{tabular}
+\caption{Classification performance predicting \texttt{target\_severity} (3-class, macro one-vs-rest AUC reported per model) on the held-out validation split.}
+\label{tab:classification_results}
+\end{table}
