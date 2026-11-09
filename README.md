@@ -7,6 +7,8 @@ Each SEVIR VIL event is a 384 × 384 × 49 sequence: 49 frames, 5 minutes apart.
 1. **Tabular models (scikit-learn):** a few summary features per window, used to predict the intensity of the 60-minutes-ahead frame (regression) and to classify it as normal, moderate or severe.
 2. **Deep learning models (PyTorch):** all 12 future frames are forecast pixel by pixel with a CNN, a space-time Transformer, and a residual diffusion model built on the frozen Transformer. Each is scored with the Critical Success Index (CSI) against a persistence baseline.
 
+> **Note:** The deep learning training script (`train_ml_models.py`) is not in this repository. The code here covers data processing, the tabular models, the diagnostic plots and anomaly detection.
+
 ## Repository layout
 
 ```
@@ -16,7 +18,6 @@ FINAL_PROJECT/
 ├── extract_tabular_features.py     # Windows -> tabular features + targets (CSV)
 ├── train_tabular_models.py         # Regression + severity classification (sklearn)
 ├── analysis_plots.py               # Diagnostic plots for the tabular models
-├── train_ml_models.py              # CNN / Transformer / diffusion nowcasting models (PyTorch)
 ├── classic_anomaly_detection.py    # Isolation Forest / One-Class SVM / LOF on tabular features
 ├── CATALOG.csv                     # SEVIR event catalog (all image types)
 ├── vil_train_catalog.csv           # VIL events before 2019-06-01 (15,693 events)
@@ -62,10 +63,11 @@ python train_tabular_models.py
 # 4. Generate the diagnostic plots in ANALYSIS_PLOTS/
 python analysis_plots.py
 
-# 5. Train the deep nowcasting models (a GPU is recommended); outputs go to CHECKPOINTS/
-mkdir -p CHECKPOINTS
-python train_ml_models.py
+# 5. Run anomaly detection on the tabular features
+python classic_anomaly_detection.py
 ```
+
+The deep nowcasting models (CNN, Transformer, diffusion) were trained with a separate script that is not included here.
 
 ### Tabular features
 
@@ -82,9 +84,9 @@ The targets come from the 60-minutes-ahead frame:
 |---|---|
 | Regression (`target_mean`) | Linear, Lasso, Random Forest, Gradient Boosting |
 | Classification (`target_severity`) | Logistic Regression, Random Forest, Gradient Boosting |
-| Frame forecasting (12 frames) | Persistence baseline, SimpleConvBaseline (CNN), SpaceTimeTransformer, residual Gaussian diffusion |
+| Frame forecasting (12 frames, training code not included) | Persistence baseline, SimpleConvBaseline (CNN), SpaceTimeTransformer, residual Gaussian diffusion |
 
-The forecasting models are scored with CSI at VIL thresholds 16, 74, 133, 160, 181 and 219.
+The forecasting models were scored with CSI at VIL thresholds 16, 74, 133, 160, 181 and 219.
 
 ## Requirements
 
